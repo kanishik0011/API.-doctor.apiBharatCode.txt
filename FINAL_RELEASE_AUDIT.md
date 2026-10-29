@@ -69,7 +69,7 @@ The frontend now uses a bounded analysis client that distinguishes safe server e
 | `npm run build` | **PASS** | Optimized Next.js 15.5.28 build completed. |
 | `npm audit --omit=dev` | **PASS** | 0 vulnerabilities. |
 
-**Real BharatCode verification remains BLOCKED.** `BHARATCODE_API_KEY` is still unavailable; no live call was attempted and demo success is not presented as provider evidence. **Publication is NOT TESTED for these new local changes.** Per instruction, no Git commit, push, pull request, merge, or deployment was performed in this follow-up; the existing remote release branch therefore does not yet include this fix.
+**Real BharatCode verification remains BLOCKED.** `BHARATCODE_API_KEY` is still unavailable; no live call was attempted and demo success is not presented as provider evidence. **Publication is PASS.** After explicit authorization, this follow-up was committed as `18fc9a8` and pushed normally to `origin/release/api-doctor-ai`; no force-push, merge, or deployment was performed.
 
 ## Publication completion report — 2026-10-29
 
@@ -108,11 +108,10 @@ The implemented product is functional and polished in offline/local-demo mode. T
 
 Security and reliability improvements were made during this audit: nested and URL secret redaction, prompt-injection boundaries, input byte limits, endpoint throttling, bounded provider retries, timeout and truncated-completion handling, security headers, generated-output sanitization, and additional negative tests.
 
-Three release conditions remain:
+Two release conditions remain:
 
 1. **BLOCKED — live BharatCode verification:** `BHARATCODE_API_KEY` is not configured. No real provider request was made and no mock result is presented as live evidence.
 2. **BLOCKED — default-branch submission:** the complete source is published on `release/api-doctor-ai`, but GitHub CLI is not authenticated, so the pull request was not created and `main` intentionally remains unchanged.
-3. **NOT TESTED — publication of this follow-up:** the transport/error-handling fix is verified locally but was not committed or pushed because publication was not authorized.
 
 Per the supplied release rubric, an unverified real BharatCode integration requires a final decision of **NOT READY**, even though all available offline gates pass.
 
@@ -133,7 +132,7 @@ Per the supplied release rubric, an unverified real BharatCode integration requi
 | 11 | Automated tests run | **PASS** | `npm run test`: 11 files passed, 41 tests passed, 0 failed. |
 | 12 | Production build passes | **PASS** | `npm run build`: optimized Next.js production build completed successfully with `/`, `/api/analyze`, and `/api/status`. |
 | 13 | No secrets are committed | **PASS** | Working tree, staged content, and existing history were scanned; no real credential signature was found. Sensitive/generated paths are ignored and were not committed. |
-| 14 | Repository is ready for hackathon submission | **BLOCKED** | The earlier audited source is on `release/api-doctor-ai`, but this follow-up is local only, no PR exists, and `main` intentionally remains unchanged. Live provider verification also remains blocked. |
+| 14 | Repository is ready for hackathon submission | **BLOCKED** | The latest audited source is published on `release/api-doctor-ai`, but no PR exists and `main` intentionally remains unchanged. Live provider verification also remains blocked. |
 
 Summary: **12 PASS, 0 FAIL, 2 BLOCKED**.
 
@@ -393,7 +392,7 @@ No deployment success is claimed.
 - **PASS:** a fresh clone preserved the existing history, and the source commit was pushed to `release/api-doctor-ai` without force.
 - **PASS:** staged content and existing history passed credential-signature scans before push.
 - **PASS:** remote `main` remains unchanged; no direct or forced main update occurred.
-- **NOT TESTED:** the HTTP 500 transport/error-handling follow-up is local only and has not been committed or pushed, as required by the instruction not to push automatically.
+- **PASS:** after explicit authorization, the HTTP 500 transport/error-handling follow-up was committed as `18fc9a8` and pushed normally to `release/api-doctor-ai` without force.
 - **BLOCKED:** GitHub CLI is not authenticated, so no pull request was created automatically.
 - **NOT TESTED:** GitHub Actions/CI and branch-protection behavior.
 
@@ -428,7 +427,6 @@ Manual PR: https://github.com/kanishik0011/API.-doctor.apiBharatCode.txt/compare
 
 1. **Live BharatCode verification is BLOCKED.** Add a valid `BHARATCODE_API_KEY` to local `.env.local` or the deployment environment, never to source control. Then run exactly the five required live checks using synthetic 401/422/500 data.
 2. **Pull request/main publication is BLOCKED.** The audited source is on the remote release branch, but GitHub CLI is not authenticated. Open the manual compare URL, review the diff, and create the PR into `main`; do not force-push or auto-merge.
-3. **The latest local fix is not published.** Review the changes in this follow-up, commit them on `release/api-doctor-ai`, and push that branch only after explicit authorization. The existing remote release branch predates this fix.
 
 ### Non-blocking limitations
 
@@ -443,14 +441,14 @@ Manual PR: https://github.com/kanishik0011/API.-doctor.apiBharatCode.txt/compare
 
 # **NOT READY**
 
-Reason: the supplied rubric explicitly classifies an unverified real BharatCode integration as NOT READY. All available local quality, security, build, export, demo, and browser checks pass, but those results cannot substitute for credentialed external verification. The earlier audited baseline is published on the release branch; this follow-up is not yet published, and `main` remains unchanged pending a reviewed pull request.
+Reason: the supplied rubric explicitly classifies an unverified real BharatCode integration as NOT READY. All available local quality, security, build, export, demo, browser, and release-branch publication checks pass, but those results cannot substitute for credentialed external verification. The latest audited source is published on the release branch; `main` remains unchanged pending a reviewed pull request.
 
 Exact next action:
 
 1. Copy `.env.example` to `.env.local`, insert a valid BharatCode key manually, and restart the application without printing or sharing the key.
 2. Re-run `GET /models`, one minimal chat completion, and the real application route for synthetic 401, 422, and 500 cases; record response schema, `finish_reason`, and request IDs without recording credentials.
 3. If all five pass, rerun the five quality gates in this report.
-4. After explicit authorization, commit this follow-up on `release/api-doctor-ai`, push without force, then open the manual GitHub compare URL and create a pull request into `main`; review it without auto-merging.
+4. Open the manual GitHub compare URL and create a pull request from `release/api-doctor-ai` into `main`; review it without auto-merging.
 5. Deploy only after authorization, configure server-side environment variables, and run one deployed production smoke test.
 
 When live verification and the reviewed pull-request step pass, the release decision can be reassessed as READY; deployment verification can remain separately labeled until a deployed URL exists.
