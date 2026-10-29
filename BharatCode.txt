@@ -1,0 +1,9 @@
+Project: API Doctor AI
+Category: Coding & Developer Tools
+Description: AI-powered API debugging and test generation assistant
+AI provider: BharatCode
+Model: qwen-3.8-27b
+Integration: Server-side POST /chat/completions for structured API failure diagnosis
+Workflow: Sanitized failure evidence -> validated diagnosis -> corrected request -> deterministic tests
+Credential: BHARATCODE_API_KEY is read only from the server environment and is never committed
+Verification: Local demo and mocked provider tests pass; live provider verification requires a valid key

@@ -1,0 +1,34 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/.next-build/
+/.next-prod/
+/.npm-cache/
+/out/
+/.playwright-cli/
+/output/
+
+# production
+/build
+
+# local environment files — never commit credentials
+.env
+.env.local
+.env.*.local
+
+# test and tooling output
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+npm-install*.log
+qa*.log
+yarn-debug.log*
+yarn-error.log*
+.vercel
