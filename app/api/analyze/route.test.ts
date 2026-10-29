@@ -15,10 +15,15 @@ function rawRequest(body: string) {
 }
 
 describe("POST /api/analyze", () => {
-  it("returns explicitly sourced deterministic demo output", async () => {
-    const response = await POST(request({ apiCase: DEMO_SCENARIOS[0].apiCase, demoMode: true }));
+  it.each([
+    { scenario: DEMO_SCENARIOS[0], category: "Authentication" },
+    { scenario: DEMO_SCENARIOS[1], category: "Request validation" },
+    { scenario: DEMO_SCENARIOS[2], category: "Server / dependency failure" },
+  ])("returns explicitly sourced deterministic demo output for $scenario.id without a key", async ({ scenario, category }) => {
+    vi.stubEnv("BHARATCODE_API_KEY", "");
+    const response = await POST(request({ apiCase: scenario.apiCase, demoMode: true }));
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ source: "demo", analysis: { category: "Authentication" } });
+    await expect(response.json()).resolves.toMatchObject({ source: "demo", analysis: { category } });
   });
 
   it("returns validation details for malformed requests", async () => {

@@ -6,6 +6,7 @@ import {
   CircleDot, Clipboard, Code2, Copy, Download, FileText, Github, LoaderCircle, LockKeyhole,
   Plus, RotateCcw, ShieldCheck, Sparkles, Terminal, TestTube2, Trash2, XCircle, Zap,
 } from "lucide-react";
+import { requestAnalysis } from "@/lib/analysis-client";
 import { runAssertions, notRunResults } from "@/lib/assertions";
 import { parseCurl, toCurl } from "@/lib/curl";
 import { DEMO_SCENARIOS } from "@/lib/demos";
@@ -55,7 +56,19 @@ export function Workspace() {
   const [error, setError] = useState("");
   const [curlError, setCurlError] = useState("");
 
-  useEffect(() => { fetch("/api/status").then((r) => r.json()).then((x: { configured: boolean }) => setConfigured(x.configured)).catch(() => setConfigured(false)); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    fetch("/api/status", { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Status request failed");
+        return response.json() as Promise<{ configured: boolean }>;
+      })
+      .then((status) => setConfigured(status.configured))
+      .catch(() => setConfigured(false))
+      .finally(() => clearTimeout(timeout));
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, []);
 
   const analysis = result?.analysis;
   const curl = analysis ? correctedCurl(analysis) : "";
@@ -73,7 +86,7 @@ export function Workspace() {
   function importCurl() {
     try {
       const parsed = parseCurl(curlInput);
-      setApiCase((current) => ({ ...current, ...parsed })); setCurlError("");
+      setApiCase((current) => ({ ...current, ...parsed })); setCurlError(""); setError("");
     } catch (err) { setCurlError(err instanceof Error ? err.message : "Could not parse cURL."); }
   }
   async function analyze() {
@@ -81,9 +94,7 @@ export function Workspace() {
     if (!parsed.success) { setError(parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(" · ")); return; }
     setLoading(true); setError(""); setResult(null); setAssertionResults([]);
     try {
-      const response = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiCase: parsed.data, demoMode }) });
-      const payload = await response.json() as AnalysisResponse & { error?: string };
-      if (!response.ok || payload.error) throw new Error(payload.error || "Analysis request failed.");
+      const payload = await requestAnalysis(parsed.data, demoMode);
       setResult(payload); setAssertionResults(notRunResults(payload.analysis.testSpecs)); setVerification({ status: apiCase.responseStatus, body: apiCase.responseBody }); setTab("tests");
     } catch (err) { setError(err instanceof Error ? err.message : "Analysis failed."); }
     finally { setLoading(false); }

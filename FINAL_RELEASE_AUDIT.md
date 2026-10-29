@@ -6,6 +6,71 @@ Category: BharatCode Build League — Coding & Developer Tools
 Audited target: local source in `api-doctor-ai` and publication clone in `api-doctor-ai-publish`
 Status vocabulary: **PASS**, **FAIL**, **BLOCKED**, **NOT TESTED**
 
+## HTTP 500 `Failed to fetch` follow-up — 2026-10-29
+
+### Root cause and resolution
+
+**PASS — root cause identified and the product defect fixed.** The deliberately supplied HTTP 500 was not the failing response from API Doctor AI. The browser's `fetch("/api/analyze")` rejected before it received any HTTP response because the Next.js server was not reachable/listening during the failing condition. The frontend catch block then displayed the browser's raw `TypeError` message, `Failed to fetch`, with no transport classification. The request never reached `createDemoAnalysis`, so neither the synthetic 500 evidence, request validation, BharatCode credentials, nor the deterministic demo generator caused the failure.
+
+Evidence:
+
+- With no accepting server transport, both `/api/status` and `/api/analyze` returned zero bytes and timed out; a Playwright offline reproduction produced the same browser fetch rejection.
+- With Next.js reporting `Ready`, `GET /api/status` returned HTTP 200 and the exact synthetic 500 `POST /api/analyze` returned HTTP 200 with `source: "demo"` and the expected structured database-pool diagnosis.
+- The demo branch returns before `analyzeWithBharatCode`; it does not read or require `BHARATCODE_API_KEY`.
+- A final `next start` production smoke test returned HTTP 200 for both routes and rendered the 500 diagnosis with zero console errors or warnings.
+
+The frontend now uses a bounded analysis client that distinguishes safe server errors, unreadable/incomplete responses, transport failures, and timeouts. A network failure displays: `Cannot reach the API Doctor server. Start or restart it with npm run dev, wait for Ready, then reload this page.` A 45-second abort prevents indefinite loading. The provider-status probe now has a 10-second bound, and a successful cURL import clears stale validation errors.
+
+### Files changed in this follow-up
+
+- `lib/analysis-client.ts` — added the typed, time-bounded analysis API client and safe error mapping.
+- `lib/analysis-client.test.ts` — added local-demo, network-failure, timeout, safe API error, and unreadable-response regressions.
+- `components/workspace.tsx` — adopted the client, bounded `/api/status`, and cleared stale validation errors after cURL import.
+- `app/api/analyze/route.test.ts` — expanded route coverage to credential-free 401, 422, and 500 demo analyses.
+- `FINAL_RELEASE_AUDIT.md` — recorded this evidence.
+
+### Running API route verification
+
+| Request | Result | Evidence |
+|---|---|---|
+| `GET /api/status` | **PASS** | HTTP 200; `configured:false`, model `qwen-3.8-27b`. |
+| Valid 500 local-demo analysis | **PASS** | HTTP 200; source `demo`; structured server/dependency diagnosis. |
+| Invalid URL | **PASS** | HTTP 400 `VALIDATION` with `apiCase.url` issues. |
+| Missing required fields | **PASS** | HTTP 400 `VALIDATION`. |
+| Invalid JSON | **PASS** | HTTP 400 `INVALID_JSON`. |
+| Oversized request | **PASS** | HTTP 413 `PAYLOAD_TOO_LARGE`. |
+| Live mode without key | **PASS** | HTTP 503 `CONFIG`; no demo substitution and no provider call. |
+| Unsupported `GET /api/analyze` | **PASS** | HTTP 405. |
+| Deliberately induced unexpected internal exception | **NOT TESTED** | No safe production-style trigger exists; provider/server error mappings remain covered by automated mocks and route-level tests. |
+
+### Browser workflow verification
+
+| Workflow | Result | Evidence |
+|---|---|---|
+| HTTP 401 demo | **PASS** | Loaded, analyzed without a key, rendered authentication cause and `<VALID_TOKEN>` correction, generated tests, executed assertions (1 PASS / 1 FAIL against the supplied 401), and downloaded a Markdown report. |
+| HTTP 422 demo | **PASS** | Loaded, analyzed without a key, rendered email/role corrections, generated tests, executed assertions (1 PASS / 1 FAIL against the supplied 422), and downloaded a Markdown report. |
+| HTTP 500 demo | **PASS** | Loaded, analyzed without a key, rendered the database-pool cause, preserved the request because no client correction was justified, executed assertions (1 PASS / 1 FAIL against the supplied 500), and downloaded a Markdown report. |
+| Jest export | **PASS** | Browser download completed; generator validity remains covered by automated syntax checks. |
+| Postman export | **PASS** | Browser download completed; collection v2.1 structure and deterministic checks remain covered by automated tests. |
+| PASS / FAIL / NOT RUN | **PASS** | All cases began NOT RUN; actual supplied responses produced honest mixed PASS/FAIL results with field/status evidence. |
+| Copy controls | **PASS** | Browser interaction completed without application error. |
+| Network failure UX | **PASS** | Offline request displayed the new actionable server-unreachable alert; raw `Failed to fetch` was not shown. |
+| Timeout UX | **PASS** | Abort behavior and timeout message verified deterministically by automated test. |
+| Live missing-key UX | **PASS** | Browser displayed explicit BharatCode configuration guidance; route returned HTTP 503. |
+| Mobile/responsive UI | **PASS** | Playwright and visual inspection at 375, 768, 1024, and 1440 px; document width equaled viewport at every size. |
+
+### Follow-up regression gates
+
+| Command | Result | Evidence |
+|---|---|---|
+| `npm run lint` | **PASS** | Exit 0, zero warnings. |
+| `npm run typecheck` | **PASS** | Exit 0. |
+| `npm run test` | **PASS** | 11/11 files, 41/41 tests, 0 failures. |
+| `npm run build` | **PASS** | Optimized Next.js 15.5.28 build completed. |
+| `npm audit --omit=dev` | **PASS** | 0 vulnerabilities. |
+
+**Real BharatCode verification remains BLOCKED.** `BHARATCODE_API_KEY` is still unavailable; no live call was attempted and demo success is not presented as provider evidence. **Publication is NOT TESTED for these new local changes.** Per instruction, no Git commit, push, pull request, merge, or deployment was performed in this follow-up; the existing remote release branch therefore does not yet include this fix.
+
 ## Publication completion report — 2026-10-29
 
 | Required result | Status | Evidence |
@@ -39,14 +104,15 @@ The remaining blockers were rechecked after the original audit:
 
 ## 1. Executive summary
 
-The implemented product is functional and polished in offline/local-demo mode. The request builder, structured diagnoses, corrected cURL, deterministic test generation, local assertion runner, Markdown report, and all three demos were exercised in an actual browser against a production build. Lint, strict TypeScript, 35 automated tests, the production build, and the production dependency audit all pass.
+The implemented product is functional and polished in offline/local-demo mode. The request builder, structured diagnoses, corrected cURL, deterministic test generation, local assertion runner, Markdown report, and all three demos were exercised in an actual browser, followed by a production-build smoke test. Lint, strict TypeScript, 41 automated tests, the production build, and the production dependency audit all pass.
 
 Security and reliability improvements were made during this audit: nested and URL secret redaction, prompt-injection boundaries, input byte limits, endpoint throttling, bounded provider retries, timeout and truncated-completion handling, security headers, generated-output sanitization, and additional negative tests.
 
-Two release conditions remain:
+Three release conditions remain:
 
 1. **BLOCKED — live BharatCode verification:** `BHARATCODE_API_KEY` is not configured. No real provider request was made and no mock result is presented as live evidence.
 2. **BLOCKED — default-branch submission:** the complete source is published on `release/api-doctor-ai`, but GitHub CLI is not authenticated, so the pull request was not created and `main` intentionally remains unchanged.
+3. **NOT TESTED — publication of this follow-up:** the transport/error-handling fix is verified locally but was not committed or pushed because publication was not authorized.
 
 Per the supplied release rubric, an unverified real BharatCode integration requires a final decision of **NOT READY**, even though all available offline gates pass.
 
@@ -64,10 +130,10 @@ Per the supplied release rubric, an unverified real BharatCode integration requi
 | 8 | Pass/fail states reflect real results | **PASS** | Initial results were NOT RUN. Running the supplied 500 response produced 1 PASS and 1 FAIL, including status and missing-field explanations. |
 | 9 | Reports can be downloaded | **PASS** | Browser downloaded `api-doctor-report.md`; it contained a timestamp, assumptions, and the observed PASS/FAIL evidence. |
 | 10 | At least three demo scenarios are available | **PASS** | JWT 401, validation 422, and backend 500 were each loaded and analyzed successfully in Chromium. |
-| 11 | Automated tests run | **PASS** | `npm run test`: 10 files passed, 35 tests passed, 0 failed. |
+| 11 | Automated tests run | **PASS** | `npm run test`: 11 files passed, 41 tests passed, 0 failed. |
 | 12 | Production build passes | **PASS** | `npm run build`: optimized Next.js production build completed successfully with `/`, `/api/analyze`, and `/api/status`. |
 | 13 | No secrets are committed | **PASS** | Working tree, staged content, and existing history were scanned; no real credential signature was found. Sensitive/generated paths are ignored and were not committed. |
-| 14 | Repository is ready for hackathon submission | **BLOCKED** | Complete source is published on `release/api-doctor-ai`, but no PR exists and `main` intentionally still contains only its initial README. Live provider verification also remains blocked. |
+| 14 | Repository is ready for hackathon submission | **BLOCKED** | The earlier audited source is on `release/api-doctor-ai`, but this follow-up is local only, no PR exists, and `main` intentionally remains unchanged. Live provider verification also remains blocked. |
 
 Summary: **12 PASS, 0 FAIL, 2 BLOCKED**.
 
@@ -147,6 +213,10 @@ Removed unused direct packages:
 - demo schema validity
 - Jest syntax and Postman value/type assertions
 - URL credential rejection
+- browser-to-server network failure classification
+- analysis request abort/timeout behavior
+- safe handling of unreadable and incomplete analysis responses
+- credential-free route execution for all 401, 422, and 500 demos
 
 ## 5. Security findings
 
@@ -238,6 +308,7 @@ These tests establish client behavior and payload discipline, but cannot establi
 | Validation 422 demo | **PASS** | Loaded and analyzed in production browser session. |
 | Backend 500 demo | **PASS** | Loaded and analyzed in production browser session. |
 | Live missing-key UX | **PASS** | Header showed `Key not configured`; route returned explicit 503 rather than substituting demo output. |
+| Server-unreachable UX | **PASS** | Playwright offline simulation displayed actionable restart/reload guidance instead of raw `Failed to fetch`. |
 
 The local runner verifies only user-supplied response data. It does not prove the remote backend is fixed, and both UI and reports state that distinction.
 
@@ -250,13 +321,13 @@ Final executed commands:
 | `npm install --no-audit --no-fund` | **PASS** | Completed; removed 25 packages. |
 | `npm run lint` | **PASS** | Exit 0, zero warnings (`--max-warnings=0`). |
 | `npm run typecheck` | **PASS** | Exit 0, strict TypeScript check completed. |
-| `npm run test` | **PASS** | 10/10 test files, 35/35 tests, 0 failures. |
+| `npm run test` | **PASS** | 11/11 test files, 41/41 tests, 0 failures. |
 | `npm run build` | **PASS** | Optimized Next.js 15.5.28 build completed. |
 | `npm audit --omit=dev` | **PASS** | 0 vulnerabilities. |
 
 The complete five-command sequence was rerun during blocker resolution after the original audit; the results above remained unchanged.
 
-Test coverage was inspected by capability rather than a numeric instrumentation threshold. The requested high-risk branches are represented across the 35 tests. No paid key is required for the automated suite.
+Test coverage was inspected by capability rather than a numeric instrumentation threshold. The requested high-risk branches are represented across the 41 tests. No paid key is required for the automated suite.
 
 Environment note: this workstation runs Node.js 21.7.3. Some development dependencies warn that odd-numbered Node 21 is unsupported. The checks passed, but releases should use an active LTS line documented in the README (Node 20.19+, 22.13+, or 24+).
 
@@ -267,7 +338,7 @@ Next.js 15.5.28
 Compiled successfully
 Static route: /
 Dynamic routes: /api/analyze, /api/status
-First Load JS: 143 kB for /
+First Load JS: 144 kB for /
 ```
 
 Production server smoke evidence:
@@ -280,7 +351,7 @@ Production server smoke evidence:
 
 ## 11. Responsive and browser results
 
-Browser: Chromium controlled through Playwright CLI against `next start`.
+Browser: Chromium controlled through Playwright CLI for complete workflows against `next dev`, followed by a clean HTTP 500 smoke test against `next start`.
 
 | Viewport | Result | Evidence |
 |---|---|---|
@@ -322,6 +393,7 @@ No deployment success is claimed.
 - **PASS:** a fresh clone preserved the existing history, and the source commit was pushed to `release/api-doctor-ai` without force.
 - **PASS:** staged content and existing history passed credential-signature scans before push.
 - **PASS:** remote `main` remains unchanged; no direct or forced main update occurred.
+- **NOT TESTED:** the HTTP 500 transport/error-handling follow-up is local only and has not been committed or pushed, as required by the instruction not to push automatically.
 - **BLOCKED:** GitHub CLI is not authenticated, so no pull request was created automatically.
 - **NOT TESTED:** GitHub Actions/CI and branch-protection behavior.
 
@@ -356,6 +428,7 @@ Manual PR: https://github.com/kanishik0011/API.-doctor.apiBharatCode.txt/compare
 
 1. **Live BharatCode verification is BLOCKED.** Add a valid `BHARATCODE_API_KEY` to local `.env.local` or the deployment environment, never to source control. Then run exactly the five required live checks using synthetic 401/422/500 data.
 2. **Pull request/main publication is BLOCKED.** The audited source is on the remote release branch, but GitHub CLI is not authenticated. Open the manual compare URL, review the diff, and create the PR into `main`; do not force-push or auto-merge.
+3. **The latest local fix is not published.** Review the changes in this follow-up, commit them on `release/api-doctor-ai`, and push that branch only after explicit authorization. The existing remote release branch predates this fix.
 
 ### Non-blocking limitations
 
@@ -370,14 +443,14 @@ Manual PR: https://github.com/kanishik0011/API.-doctor.apiBharatCode.txt/compare
 
 # **NOT READY**
 
-Reason: the supplied rubric explicitly classifies an unverified real BharatCode integration as NOT READY. All available offline quality, security, build, export, demo, browser, and source-publication checks pass, but those results cannot substitute for credentialed external verification. The source is published on the release branch; `main` remains unchanged pending a reviewed pull request.
+Reason: the supplied rubric explicitly classifies an unverified real BharatCode integration as NOT READY. All available local quality, security, build, export, demo, and browser checks pass, but those results cannot substitute for credentialed external verification. The earlier audited baseline is published on the release branch; this follow-up is not yet published, and `main` remains unchanged pending a reviewed pull request.
 
 Exact next action:
 
 1. Copy `.env.example` to `.env.local`, insert a valid BharatCode key manually, and restart the application without printing or sharing the key.
 2. Re-run `GET /models`, one minimal chat completion, and the real application route for synthetic 401, 422, and 500 cases; record response schema, `finish_reason`, and request IDs without recording credentials.
 3. If all five pass, rerun the five quality gates in this report.
-4. Open the manual GitHub compare URL and create a pull request from `release/api-doctor-ai` into `main`; review it without auto-merging.
+4. After explicit authorization, commit this follow-up on `release/api-doctor-ai`, push without force, then open the manual GitHub compare URL and create a pull request into `main`; review it without auto-merging.
 5. Deploy only after authorization, configure server-side environment variables, and run one deployed production smoke test.
 
 When live verification and the reviewed pull-request step pass, the release decision can be reassessed as READY; deployment verification can remain separately labeled until a deployed URL exists.
